@@ -28,6 +28,7 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/utils"
+	"golang.org/x/tools/godoc/vfs"
 )
 
 var (
@@ -161,12 +162,12 @@ func AddTemplateExt(ext string) {
 }
 
 // AddViewPath adds a new path to the supported view paths.
-//Can later be used by setting a controller ViewPath to this folder
-//will panic if called after beego.Run()
+// Can later be used by setting a controller ViewPath to this folder
+// will panic if called after beego.Run()
 func AddViewPath(viewPath string) error {
 	if beeViewPathTemplateLocked {
 		if _, exist := beeViewPathTemplates[viewPath]; exist {
-			return nil //Ignore if viewpath already exists
+			return nil // Ignore if viewpath already exists
 		}
 		panic("Can not add new view paths after beego.Run()")
 	}
@@ -230,19 +231,31 @@ func BuildTemplate(dir string, files ...string) error {
 }
 
 func getTplDeep(root, file, parent string, t *template.Template) (*template.Template, [][]string, error) {
-	var fileAbsPath string
-	var rParent string
-	if filepath.HasPrefix(file, "../") {
-		rParent = filepath.Join(filepath.Dir(parent), file)
-		fileAbsPath = filepath.Join(root, filepath.Dir(parent), file)
+	var (
+		fileAbsPath string
+		rParent     string
+		data        []byte
+		err         error
+	)
+	if BConfig.BuildIn && BConfig.BuildInFileSystem != nil {
+		var buildInfile vfs.ReadSeekCloser
+		if buildInfile, err = BConfig.BuildInFileSystem.Open(file); err == nil {
+			data, err = ioutil.ReadAll(buildInfile)
+		}
 	} else {
-		rParent = file
-		fileAbsPath = filepath.Join(root, file)
+		if filepath.HasPrefix(file, "../") {
+			rParent = filepath.Join(filepath.Dir(parent), file)
+			fileAbsPath = filepath.Join(root, filepath.Dir(parent), file)
+		} else {
+			rParent = file
+			fileAbsPath = filepath.Join(root, file)
+		}
+		if e := utils.FileExists(fileAbsPath); !e {
+			panic("can't find template file:" + file)
+		}
+		data, err = ioutil.ReadFile(fileAbsPath)
 	}
-	if e := utils.FileExists(fileAbsPath); !e {
-		panic("can't find template file:" + file)
-	}
-	data, err := ioutil.ReadFile(fileAbsPath)
+
 	if err != nil {
 		return nil, [][]string{}, err
 	}
@@ -293,7 +306,7 @@ func _getTemplate(t0 *template.Template, root string, subMods [][]string, others
 			if tpl != nil {
 				continue
 			}
-			//first check filename
+			// first check filename
 			for _, otherFile := range others {
 				if otherFile == m[1] {
 					var subMods1 [][]string
@@ -306,7 +319,7 @@ func _getTemplate(t0 *template.Template, root string, subMods [][]string, others
 					break
 				}
 			}
-			//second check define
+			// second check define
 			for _, otherFile := range others {
 				var data []byte
 				fileAbsPath := filepath.Join(root, otherFile)

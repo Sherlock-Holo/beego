@@ -27,12 +27,13 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/session"
 	"github.com/astaxie/beego/utils"
+	"golang.org/x/tools/godoc/vfs"
 )
 
 // Config is the main struct for BConfig
 type Config struct {
-	AppName             string //Application name
-	RunMode             string //Running Mode: dev | prod
+	AppName             string // Application name
+	RunMode             string // Running Mode: dev | prod
 	RouterCaseSensitive bool
 	ServerName          string
 	RecoverPanic        bool
@@ -45,6 +46,8 @@ type Config struct {
 	Listen              Listen
 	WebConfig           WebConfig
 	Log                 LogConfig
+	BuildIn             bool
+	BuildInFileSystem   vfs.FileSystem
 }
 
 // Listen holds for http and https related config
@@ -109,8 +112,8 @@ type SessionConfig struct {
 // LogConfig holds Log related config
 type LogConfig struct {
 	AccessLogs       bool
-	EnableStaticLogs bool   //log static files requests default: false
-	AccessLogsFormat string //access log format: JSON_FORMAT, APACHE_FORMAT or empty string
+	EnableStaticLogs bool   // log static files requests default: false
+	AccessLogsFormat string // access log format: JSON_FORMAT, APACHE_FORMAT or empty string
 	FileLineNum      bool
 	Outputs          map[string]string // Store Adaptor : config
 }
@@ -204,7 +207,7 @@ func newBConfig() *Config {
 		RecoverFunc:         recoverPanic,
 		CopyRequestBody:     false,
 		EnableGzip:          false,
-		MaxMemory:           1 << 26, //64MB
+		MaxMemory:           1 << 26, // 64MB
 		EnableErrorsShow:    true,
 		EnableErrorsRender:  true,
 		Listen: Listen{
@@ -249,7 +252,7 @@ func newBConfig() *Config {
 				SessionGCMaxLifetime:         3600,
 				SessionProviderConfig:        "",
 				SessionDisableHTTPOnly:       false,
-				SessionCookieLifeTime:        0, //set cookie default is the browser life
+				SessionCookieLifeTime:        0, // set cookie default is the browser life
 				SessionAutoSetCookie:         true,
 				SessionDomain:                "",
 				SessionEnableSidInHTTPHeader: false, // enable store/get the sessionId into/from http headers
@@ -301,7 +304,7 @@ func assignConfig(ac config.Configer) error {
 
 	if sgz := ac.String("StaticExtensionsToGzip"); sgz != "" {
 		extensions := strings.Split(sgz, ",")
-		fileExts := []string{}
+		var fileExts []string
 		for _, ext := range extensions {
 			ext = strings.TrimSpace(ext)
 			if ext == "" {
@@ -332,7 +335,7 @@ func assignConfig(ac config.Configer) error {
 		}
 	}
 
-	//init log
+	// init log
 	logs.Reset()
 	for adaptor, config := range BConfig.Log.Outputs {
 		err := logs.SetLogger(adaptor, config)
@@ -371,7 +374,7 @@ func assignSingleConfig(p interface{}, ac config.Configer) {
 			pf.SetBool(ac.DefaultBool(name, pf.Bool()))
 		case reflect.Struct:
 		default:
-			//do nothing here
+			// do nothing here
 		}
 	}
 
